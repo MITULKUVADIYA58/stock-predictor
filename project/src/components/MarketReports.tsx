@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, type ElementType, type FC } from 'react';
 import { TrendingUp, Building2, MonitorSmartphone, IndianRupee, Clock, BarChart3, Activity, LineChart } from 'lucide-react';
 
 interface Report {
-  icon: React.ElementType;
+  icon: ElementType;
   title: string;
   description: string;
   change: {
@@ -119,7 +119,7 @@ const initialReports: Report[] = [
   }
 ];
 
-const MarketReports: React.FC = () => {
+const MarketReports: FC = () => {
   const [reports, setReports] = useState(initialReports);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
 
@@ -132,7 +132,7 @@ const MarketReports: React.FC = () => {
             value: +(Math.random() * 5).toFixed(1),
             isPositive: Math.random() > 0.4
           },
-          description: updateDescription(report.title)
+          description: updateDescription()
         }))
       );
     };
@@ -141,7 +141,7 @@ const MarketReports: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const updateDescription = (title: string) => {
+  const updateDescription = () => {
     const randomPhrases = {
       'NIFTY 50': [
         'Strong momentum with support at 21,500',

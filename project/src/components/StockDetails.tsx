@@ -1,5 +1,5 @@
-import React from 'react';
-import { ArrowUpCircle, ArrowDownCircle, MinusCircle, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import type { FC } from 'react';
+import { ArrowUpCircle, ArrowDownCircle, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 interface StockDetailsProps {
   stock: {
@@ -15,7 +15,7 @@ interface StockDetailsProps {
   };
 }
 
-const StockDetails: React.FC<StockDetailsProps> = ({ stock }) => {
+const StockDetails: FC<StockDetailsProps> = ({ stock }) => {
   const predictionDiff = ((stock.prediction - stock.current_price) / stock.current_price) * 100;
   const dayChange = ((stock.current_price - stock.open_price) / stock.open_price) * 100;
 

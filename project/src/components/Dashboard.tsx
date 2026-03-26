@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { LogOut, TrendingUp, BarChart3, Activity } from 'lucide-react';
 
 export default function Dashboard() {
