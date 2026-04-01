@@ -1,27 +1,78 @@
 import { useState, type FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, TrendingUp, ArrowRight, Eye, EyeOff, BarChart3, Zap } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+
+type AuthMode = 'login' | 'signup' | 'forgot';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [mode, setMode] = useState<AuthMode>('login');
+  const navigate = useNavigate();
 
-  const handleLogin = async (e: FormEvent) => {
+  const switchMode = (newMode: AuthMode) => {
+    setMode(newMode);
+    setError('');
+    setMessage('');
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
+    setMessage('');
     setLoading(true);
 
+    // Demo mode: if Supabase is not configured, go straight to dashboard
+    if (!supabase) {
+      navigate('/dashboard');
+      setLoading(false);
+      return;
+    }
+
     try {
-      alert('Login functionality to be implemented');
-    } catch {
-      setError('Login failed. Please try again.');
+      if (mode === 'forgot') {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/login`,
+        });
+        if (error) throw error;
+        setMessage('Password reset link sent! Check your email.');
+      } else if (mode === 'signup') {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        if (error) throw error;
+        setMessage('Account created! Check your email to confirm your account.');
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        // Navigation is handled by App.tsx session listener
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
+
+  const headingText = mode === 'forgot' ? 'Reset password' : mode === 'signup' ? 'Create account' : 'Welcome back';
+  const subtitleText = mode === 'forgot'
+    ? 'Enter your email to receive a reset link'
+    : mode === 'signup'
+      ? 'Sign up to get started'
+      : 'Sign in to access your dashboard';
+  const buttonText = mode === 'forgot' ? 'Send Reset Link' : mode === 'signup' ? 'Create Account' : 'Sign In';
+  const loadingText = mode === 'forgot' ? 'Sending...' : mode === 'signup' ? 'Creating account...' : 'Signing in...';
 
   return (
     <div className="min-h-screen bg-brand-darker relative overflow-hidden flex">
@@ -41,14 +92,14 @@ export default function LoginPage() {
               Stock Predictor
             </h1>
           </div>
-          
+
           <h2 className="text-5xl font-display font-bold text-white leading-tight mb-6">
             AI-Powered
             <span className="block gradient-text">Market Intelligence</span>
           </h2>
-          
+
           <p className="text-lg text-brand-muted mb-12 leading-relaxed">
-            Harness the power of advanced machine learning algorithms to predict market trends, 
+            Harness the power of advanced machine learning algorithms to predict market trends,
             analyze stock performance, and make data-driven investment decisions.
           </p>
 
@@ -88,8 +139,8 @@ export default function LoginPage() {
           {/* Form Card */}
           <div className="glass-card p-8">
             <div className="mb-8">
-              <h2 className="text-2xl font-display font-bold text-white mb-2">Welcome back</h2>
-              <p className="text-brand-muted">Sign in to access your dashboard</p>
+              <h2 className="text-2xl font-display font-bold text-white mb-2">{headingText}</h2>
+              <p className="text-brand-muted">{subtitleText}</p>
             </div>
 
             {error && (
@@ -98,7 +149,13 @@ export default function LoginPage() {
               </div>
             )}
 
-            <form onSubmit={handleLogin} className="space-y-5">
+            {message && (
+              <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 animate-slide-down">
+                <p className="text-emerald-400 text-sm font-medium">{message}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-brand-muted mb-2">
                   Email Address
@@ -116,42 +173,50 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-brand-muted mb-2">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-subtle h-5 w-5" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    className="input-glass pl-12 pr-12"
-                    required
-                  />
+              {mode !== 'forgot' && (
+                <div>
+                  <label className="block text-sm font-medium text-brand-muted mb-2">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-subtle h-5 w-5" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      className="input-glass pl-12 pr-12"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-brand-subtle hover:text-brand-text transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {mode === 'login' && (
+                <div className="flex items-center justify-between text-sm">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 rounded border-brand-border bg-brand-dark text-brand-accent focus:ring-brand-accent focus:ring-offset-0"
+                    />
+                    <span className="text-brand-muted">Remember me</span>
+                  </label>
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-brand-subtle hover:text-brand-text transition-colors"
+                    onClick={() => switchMode('forgot')}
+                    className="text-brand-accentLight hover:text-white transition-colors font-medium"
                   >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    Forgot password?
                   </button>
                 </div>
-              </div>
-
-              <div className="flex items-center justify-between text-sm">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 rounded border-brand-border bg-brand-dark text-brand-accent focus:ring-brand-accent focus:ring-offset-0"
-                  />
-                  <span className="text-brand-muted">Remember me</span>
-                </label>
-                <a href="#" className="text-brand-accentLight hover:text-white transition-colors font-medium">
-                  Forgot password?
-                </a>
-              </div>
+              )}
 
               <button
                 type="submit"
@@ -167,11 +232,11 @@ export default function LoginPage() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                       </svg>
-                      Signing in...
+                      {loadingText}
                     </>
                   ) : (
                     <>
-                      Sign In
+                      {buttonText}
                       <ArrowRight className={`h-5 w-5 transition-transform duration-300 ${isHovered ? 'translate-x-1' : ''}`} />
                     </>
                   )}
@@ -180,12 +245,27 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-8 pt-6 border-t border-brand-border/50 text-center">
-              <p className="text-brand-muted text-sm">
-                Don't have an account?{' '}
-                <a href="#" className="text-brand-accentLight hover:text-white transition-colors font-semibold">
-                  Create account
-                </a>
-              </p>
+              {mode === 'login' ? (
+                <p className="text-brand-muted text-sm">
+                  Don't have an account?{' '}
+                  <button
+                    onClick={() => switchMode('signup')}
+                    className="text-brand-accentLight hover:text-white transition-colors font-semibold"
+                  >
+                    Create account
+                  </button>
+                </p>
+              ) : (
+                <p className="text-brand-muted text-sm">
+                  Already have an account?{' '}
+                  <button
+                    onClick={() => switchMode('login')}
+                    className="text-brand-accentLight hover:text-white transition-colors font-semibold"
+                  >
+                    Sign in
+                  </button>
+                </p>
+              )}
             </div>
           </div>
 
