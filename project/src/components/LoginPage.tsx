@@ -1,23 +1,136 @@
 import { useState, type FormEvent } from 'react';
-import { Mail, Lock, TrendingUp, ArrowRight, Eye, EyeOff, BarChart3, Zap } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Mail, Lock, TrendingUp, ArrowRight, Eye, EyeOff, BarChart3, Zap, AlertCircle, CheckCircle } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
 
-export default function LoginPage() {
+interface LoginPageProps {
+  setIsLoggedIn: (value: boolean) => void;
+}
+
+export default function LoginPage({ setIsLoggedIn }: LoginPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const navigate = useNavigate();
+
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     setLoading(true);
 
     try {
-      alert('Login functionality to be implemented');
-    } catch {
-      setError('Login failed. Please try again.');
+      // Validation
+      if (!email.trim()) {
+        setError('Email address is required');
+        setLoading(false);
+        return;
+      }
+
+      if (!validateEmail(email)) {
+        setError('Please enter a valid email address');
+        setLoading(false);
+        return;
+      }
+
+      if (!password) {
+        setError('Password is required');
+        setLoading(false);
+        return;
+      }
+
+      if (password.length < 6) {
+        setError('Password must be at least 6 characters long');
+        setLoading(false);
+        return;
+      }
+
+      // Sign in with Supabase
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password,
+      });
+
+      if (signInError) {
+        setError(signInError.message || 'Login failed. Please check your credentials.');
+        setLoading(false);
+        return;
+      }
+
+      if (data.session) {
+        setSuccess('Login successful! Redirecting to dashboard...');
+        
+        // Store session info if remember me is checked
+        if (rememberMe) {
+          localStorage.setItem('userEmail', email);
+        }
+
+        setIsLoggedIn(true);
+        
+        // Redirect to dashboard
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1000);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Login failed. Please try again later.');
+      console.error('Login error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignUp = async () => {
+    if (!email || !password) {
+      setError('Please fill in all fields');
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: email,
+        password: password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`,
+        },
+      });
+
+      if (signUpError) {
+        setError(signUpError.message || 'Sign up failed');
+        setLoading(false);
+        return;
+      }
+
+      if (data) {
+        setSuccess('Sign up successful! Check your email to confirm.');
+        setEmail('');
+        setPassword('');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Sign up failed');
     } finally {
       setLoading(false);
     }
@@ -57,7 +170,7 @@ export default function LoginPage() {
             {[
               { icon: BarChart3, text: 'Real-time market analysis & predictions', color: 'from-blue-500/20 to-cyan-500/20' },
               { icon: Zap, text: 'AI-powered sentiment analysis', color: 'from-violet-500/20 to-purple-500/20' },
-              { icon: TrendingUp, text: 'Portfolio tracking & optimization', color: 'from-emerald-500/20 to-teal-500/20' },
+              { icon: TrendingUp, text: 'Advanced stock tracking & analytics', color: 'from-emerald-500/20 to-teal-500/20' },
             ].map((feature, idx) => (
               <div
                 key={idx}
@@ -93,8 +206,16 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="mb-6 p-4 rounded-xl bg-brand-rose/10 border border-brand-rose/20 animate-slide-down">
+              <div className="mb-6 p-4 rounded-xl bg-brand-rose/10 border border-brand-rose/20 animate-slide-down flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-brand-rose flex-shrink-0 mt-0.5" />
                 <p className="text-brand-rose text-sm font-medium">{error}</p>
+              </div>
+            )}
+
+            {success && (
+              <div className="mb-6 p-4 rounded-xl bg-brand-emerald/10 border border-brand-emerald/20 animate-slide-down flex items-start gap-3">
+                <CheckCircle className="h-5 w-5 text-brand-emerald flex-shrink-0 mt-0.5" />
+                <p className="text-brand-emerald text-sm font-medium">{success}</p>
               </div>
             )}
 
@@ -109,9 +230,9 @@ export default function LoginPage() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@company.com"
+                    placeholder="your@email.com"
                     className="input-glass pl-12"
-                    required
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -128,12 +249,13 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
                     className="input-glass pl-12 pr-12"
-                    required
+                    disabled={loading}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-brand-subtle hover:text-brand-text transition-colors"
+                    disabled={loading}
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
@@ -144,7 +266,10 @@ export default function LoginPage() {
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
-                    className="w-4 h-4 rounded border-brand-border bg-brand-dark text-brand-accent focus:ring-brand-accent focus:ring-offset-0"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 rounded border-brand-border bg-brand-dark text-brand-accent"
+                    disabled={loading}
                   />
                   <span className="text-brand-muted">Remember me</span>
                 </label>
@@ -156,7 +281,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                onMouseEnter={() => setIsHovered(true)}
+                onMouseEnter={() => !loading && setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
                 className="w-full btn-glow flex items-center justify-center gap-2 py-3 text-base disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -179,13 +304,14 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <div className="mt-8 pt-6 border-t border-brand-border/50 text-center">
-              <p className="text-brand-muted text-sm">
-                Don't have an account?{' '}
-                <a href="#" className="text-brand-accentLight hover:text-white transition-colors font-semibold">
-                  Create account
-                </a>
-              </p>
+            <div className="mt-6 pt-6 border-t border-brand-border/50">
+              <button
+                onClick={handleSignUp}
+                disabled={loading}
+                className="w-full py-2 px-4 rounded-lg border border-brand-border/30 text-brand-accentLight hover:text-white hover:border-brand-accent transition-colors text-sm font-medium disabled:opacity-50"
+              >
+                Create New Account
+              </button>
             </div>
           </div>
 
