@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   LogOut, TrendingUp, TrendingDown, BarChart3, Activity, Search,
   Bell, Settings, PieChart, LineChart, ArrowUpRight, ArrowDownRight,
   DollarSign, Zap, Eye, ChevronRight, Home, Briefcase, FileText
 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 import StockChart from './StockChart';
 import StockDetails from './StockDetails';
 import MarketReports from './MarketReports';
@@ -41,8 +43,13 @@ export default function Dashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  const handleLogout = () => {
-    alert('Logout functionality to be implemented');
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
+    navigate('/login');
   };
 
   const filteredStocks = stocksData.filter(s =>

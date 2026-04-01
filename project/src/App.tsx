@@ -1,25 +1,9 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { createClient, type Session } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
+import { supabase } from './lib/supabase';
 import LoginPage from './components/LoginPage';
 import Dashboard from './components/Dashboard';
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-// Validate that env vars are actual URLs, not placeholders
-const isValidConfig = supabaseUrl && supabaseAnonKey
-  && supabaseUrl.startsWith('http')
-  && supabaseAnonKey.length > 20;
-
-let supabase: ReturnType<typeof createClient> | null = null;
-if (isValidConfig) {
-  try {
-    supabase = createClient(supabaseUrl, supabaseAnonKey);
-  } catch {
-    console.warn('Failed to initialize Supabase client');
-  }
-}
 
 function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -44,7 +28,7 @@ function App() {
   const isDemoMode = !supabase;
 
   return (
-    <Router basename="/stock-predictor">
+    <Router>
       <Routes>
         <Route
           path="/login"
