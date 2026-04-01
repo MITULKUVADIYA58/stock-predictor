@@ -1,68 +1,70 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { createClient, type Session } from '@supabase/supabase-js';
+import { supabase } from './lib/supabaseClient';
 import LoginPage from './components/LoginPage';
 import Dashboard from './components/Dashboard';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-// Validate that env vars are actual URLs, not placeholders
-const isValidConfig = supabaseUrl && supabaseAnonKey
-  && supabaseUrl.startsWith('http')
-  && supabaseAnonKey.length > 20;
-
-let supabase: ReturnType<typeof createClient> | null = null;
-if (isValidConfig) {
-  try {
-    supabase = createClient(supabaseUrl, supabaseAnonKey);
-  } catch {
-    console.warn('Failed to initialize Supabase client');
-  }
-}
-
 function App() {
-  const [session, setSession] = useState<Session | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (supabase) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        setSession(session);
-      });
+    // Check if user is already logged in
+    const checkAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setIsLoggedIn(!!session);
+      } catch (error) {
+        console.error('Auth check error:', error);
+        setIsLoggedIn(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, session) => {
-        setSession(session);
-      });
+    checkAuth();
 
-      return () => subscription.unsubscribe();
-    }
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsLoggedIn(!!session);
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
-  // Demo mode: when Supabase is not configured, allow free navigation
-  const isDemoMode = !supabase;
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setIsLoggedIn(false);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-brand-darker flex items-center justify-center">
+        <div className="text-white text-xl font-display">Loading...</div>
+      </div>
+    );
+  }
 
   return (
-    <Router basename="/stock-predictor">
+    <Router>
       <Routes>
         <Route
           path="/login"
-          element={
-            !isDemoMode && session ? <Navigate to="/dashboard" /> : <LoginPage />
-          }
+          element={isLoggedIn ? <Navigate to="/dashboard" /> : <LoginPage setIsLoggedIn={setIsLoggedIn} />}
         />
         <Route
           path="/dashboard/*"
-          element={
-            isDemoMode || session ? <Dashboard /> : <Navigate to="/login" />
-          }
+          element={isLoggedIn ? <Dashboard onLogout={handleLogout} /> : <Navigate to="/login" />}
         />
         <Route
           path="/"
-          element={
-            <Navigate to={isDemoMode || session ? "/dashboard" : "/login"} />
-          }
+          element={<Navigate to={isLoggedIn ? "/dashboard" : "/login"} />}
         />
       </Routes>
     </Router>
